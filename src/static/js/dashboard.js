@@ -19,9 +19,16 @@ async function loadHosts() {
                 <td class="fw-bold text-primary">${host.name}</td>
                 <td>${host.ip}</td>
                 <td><span class="badge bg-secondary">${host.os}</span></td>
-                <td><span class="badge bg-dark border border-secondary">Unknown</span></td>
+                <td><span class="badge bg-success">Online</span></td>
                 <td>
-                    <button class="btn btn-danger btn-sm" onclick="deleteHost(${host.id})">Usuń</button>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-success btn-sm" onclick="fetchLogs(${host.id}, this)">
+                            📥 Scan
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteHost(${host.id})">
+                            🗑️
+                        </button>
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -77,5 +84,31 @@ async function deleteHost(id) {
         }
     } catch (error) {
         console.error('Błąd usuwania:', error);
+    }
+}
+
+// Fetch logs for a host
+async function fetchLogs(id, btn) {
+    // Blocking UI during operation
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Working...';
+    btn.disabled = true;
+
+    try {
+        // API call to fetch logs
+        const response = await fetch(`/api/hosts/${id}/fetch`, { method: 'POST' });
+        const data = await response.json();
+
+        if (response.ok) {
+            alert(`Success! Logs saved: ${data.file} (${data.count} records)`);
+        } else {
+            alert('Log Collection Failed: ' + (data.message || data.error));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Connection Error (Check Cloudflare Tunnel)');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
 }
