@@ -24,6 +24,8 @@ def create_app():
     # docker compose exec app flask setup
     app.cli.add_command(setup)
 
+    #
+
     # Blueprints registration
     app.register_blueprint(auth_bp)
     app.register_blueprint(hosts_bp)

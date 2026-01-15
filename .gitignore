@@ -10,6 +10,7 @@ venv/
 ._*
 
 # Forensics & DB
+keys/
 data/
 *.db
 *.parquet
