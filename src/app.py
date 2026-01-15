@@ -1,8 +1,11 @@
 import os
-from flask import Flask
+from flask import Flask, render_template
+from flask_login import login_required
 from extensions import db, migrate, login_manager
 from models import User, Host, LogSource, LogArchive, IPRegistry, Alert
 from commands import setup
+from auth import auth_bp
+from api.hosts import hosts_bp
 
 def create_app():
     app = Flask(__name__)
@@ -21,13 +24,19 @@ def create_app():
     # docker compose exec app flask setup
     app.cli.add_command(setup)
 
+    # Blueprints registration
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(hosts_bp)
+
     # Simple route to verify app is running
     @app.route('/')
+    @login_required
     def index():
-        return f"SIEM System Online. Database: {app.config['SQLALCHEMY_DATABASE_URI']}"
+        return render_template('index.html')
 
     return app
 
-# Entry point for running the app
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
+    app.run(host='0.0.0.0')

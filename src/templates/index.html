@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2 class="text-white">Panel Bezpieczeństwa (SIEM)</h2>
+        <p class="text-secondary">Status infrastruktury w czasie rzeczywistym</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-dark text-white border-primary h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title text-primary">Monitorowane Hosty</h5>
+                <h2 class="display-4 fw-bold" id="stats-hosts-count">0</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-dark text-white border-danger h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title text-danger">Krytyczne Alerty</h5>
+                <h2 class="display-4 fw-bold" id="stats-alerts-count">0</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-dark text-white border-success h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title text-success">Ostatnia Aktualizacja</h5>
+                <p class="lead" id="last-update">-</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card bg-dark text-white border-secondary mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">🖥️ Lista Maszyn</h5>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addHostModal">
+            + Dodaj Hosta
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover" id="hosts-table">
+                <thead>
+                    <tr>
+                        <th>Nazwa</th>
+                        <th>Adres / Hostname</th>
+                        <th>OS</th>
+                        <th>Status</th>
+                        <th>Akcje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addHostModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white border-secondary">
+            <div class="modal-header">
+                <h5 class="modal-title">Dodaj Nową Maszynę</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-host-form">
+                    <div class="mb-3">
+                        <label class="form-label">Nazwa (np. gcp-vm-1)</label>
+                        <input type="text" class="form-control bg-secondary text-white border-0" id="host-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hostname / IP (SSH)</label>
+                        <input type="text" class="form-control bg-secondary text-white border-0" id="host-ip" required>
+                        <div class="form-text text-light">Podaj nazwę z ~/.ssh/config lub IP.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">System Operacyjny</label>
+                        <select class="form-select bg-secondary text-white border-0" id="host-os">
+                            <option value="linux">Linux</option>
+                            <option value="windows">Windows</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                <button type="button" class="btn btn-primary" onclick="submitHost()">Zapisz</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
