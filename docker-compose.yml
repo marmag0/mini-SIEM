@@ -1,0 +1,36 @@
+services:
+  # ~~~ backend and log collector service ~~~
+  app:
+    build: .
+    container_name: siem_core
+    restart: unless-stopped
+    ports:
+      - "8080:5000"                 #local:container
+    volumes:
+      - ./src:/app/src              # live reload src code
+      - ./data:/app/data            # database and archives
+      - ./.env:/app/.env            # environment variables
+      - ~/.ssh:/root/.ssh:ro        # ssh keys for log collection
+    environment:
+      - FLASK_APP=src/app.py
+      - FLASK_DEBUG=1
+      - FLASK_RUN_HOST=0.0.0.0
+      - STORAGE_PATH=/app/data/archives
+      - DATABASE_URL=sqlite:////app/data/siem.db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ~~~ tunnel service ~~~
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: siem_tunnel
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      app:
+        condition: service_healthy
