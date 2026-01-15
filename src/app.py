@@ -18,6 +18,7 @@ def create_app():
     login_manager.init_app(app)
 
     # Register CLI commands
+    # docker compose exec app flask setup
     app.cli.add_command(setup)
 
     # Simple route to verify app is running
