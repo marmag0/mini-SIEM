@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# MacOS
+.DS_Store
+._*
+
+# Forensics & DB
+data/
+*.db
+*.parquet
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
