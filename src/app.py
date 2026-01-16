@@ -1,11 +1,13 @@
 import os
 from flask import Flask, render_template
 from flask_login import login_required
+import api
 from extensions import db, migrate, login_manager
 from models import User, Host, LogSource, LogArchive, IPRegistry, Alert
 from commands import setup
 from auth import auth_bp
 from api.hosts import hosts_bp
+from api.alerts import alerts_bp
 
 def create_app():
     app = Flask(__name__)
@@ -24,11 +26,10 @@ def create_app():
     # docker compose exec app flask setup
     app.cli.add_command(setup)
 
-    #
-
     # Blueprints registration
     app.register_blueprint(auth_bp)
     app.register_blueprint(hosts_bp)
+    app.register_blueprint(alerts_bp)
 
     # Simple route to verify app is running
     @app.route('/')

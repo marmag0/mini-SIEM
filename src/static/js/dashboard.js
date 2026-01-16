@@ -1,15 +1,18 @@
+let alertsChart = null;
+
 document.addEventListener('DOMContentLoaded', function() {
     loadHosts();
+    loadAlerts();
+    loadStats();
 });
 
-// 1. Download host list and populate table
+// Download host list and populate table
 async function loadHosts() {
     try {
         const response = await fetch('/api/hosts/');
         const hosts = await response.json();
-        
         const tbody = document.querySelector('#hosts-table tbody');
-        tbody.innerHTML = ''; // Clear existing rows
+        tbody.innerHTML = '';
         
         document.getElementById('stats-hosts-count').innerText = hosts.length;
 
@@ -21,108 +24,131 @@ async function loadHosts() {
                 <td><span class="badge bg-secondary">${host.os}</span></td>
                 <td><span class="badge bg-success">Online</span></td>
                 <td>
-                    <div class="btn-group" role="group">
-                        <button class="btn btn-success btn-sm" onclick="fetchLogs(${host.id}, this)">
-                            📥 Scan
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteHost(${host.id})">
-                            🗑️
-                        </button>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-success btn-sm" onclick="fetchLogs(${host.id}, this)">📥 Scan</button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteHost(${host.id})">🗑️</button>
                     </div>
                 </td>
             `;
             tbody.appendChild(tr);
         });
-        
-        // Refresh last update time
-        const now = new Date();
-        document.getElementById('last-update').innerText = now.toLocaleTimeString();
-
-    } catch (error) {
-        console.error('Błąd pobierania hostów:', error);
-    }
+        document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
+    } catch (e) { console.error('Błąd hostów:', e); }
 }
 
-// Add host form submission
-async function submitHost() {
-    const name = document.getElementById('host-name').value;
-    const ip = document.getElementById('host-ip').value;
-    const os = document.getElementById('host-os').value;
-    
+// Download recent alerts and populate table
+async function loadAlerts() {
     try {
-        const response = await fetch('/api/hosts/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name, ip, os })
+        const response = await fetch('/api/alerts/recent');
+        const alerts = await response.json();
+        const tbody = document.querySelector('#alerts-table tbody');
+        tbody.innerHTML = '';
+
+        alerts.forEach(alert => {
+            let badgeClass = 'bg-info';
+            if (alert.severity === 'CRITICAL') badgeClass = 'bg-danger';
+            if (alert.severity === 'WARNING') badgeClass = 'bg-warning text-dark';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="text-secondary">${alert.timestamp}</td>
+                <td><span class="badge ${badgeClass}">${alert.severity}</span></td>
+                <td class="text-info">${alert.host}</td>
+                <td>${alert.message}</td>
+            `;
+            tbody.appendChild(tr);
         });
-
-        if (response.ok) {
-            // Close modal and refresh host list
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addHostModal'));
-            modal.hide();
-            loadHosts();
-            document.getElementById('add-host-form').reset();
-        } else {
-            const err = await response.json();
-            alert('Błąd: ' + err.error);
-        }
-    } catch (error) {
-        console.error('Błąd zapisu:', error);
-    }
+    } catch (e) { console.error('Błąd alertów:', e); }
 }
 
-// Delete host
-async function deleteHost(id) {
-    if(!confirm('Czy na pewno usunąć maszynę?')) return;
-
+// Download alert stats and render chart
+async function loadStats() {
     try {
-        const response = await fetch(`/api/hosts/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-            loadHosts();
-        }
-    } catch (error) {
-        console.error('Błąd usuwania:', error);
-    }
+        const response = await fetch('/api/alerts/stats');
+        const stats = await response.json();
+
+        // Counter update
+        const criticalCount = stats['CRITICAL'] || 0;
+        document.getElementById('stats-alerts-critical').innerText = criticalCount;
+
+        const ctx = document.getElementById('alertsChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (alertsChart) alertsChart.destroy();
+
+        alertsChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Critical', 'Warning', 'Info'],
+                datasets: [{
+                    data: [stats['CRITICAL'] || 0, stats['WARNING'] || 0, stats['INFO'] || 0],
+                    backgroundColor: ['#dc3545', '#ffc107', '#0dcaf0'],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#fff' } }
+                }
+            }
+        });
+    } catch (e) { console.error('Błąd statystyk:', e); }
 }
 
 // Fetch logs for a host
 async function fetchLogs(id, btn) {
-    // Blocking UI during operation
     const originalText = btn.innerHTML;
-    btn.innerHTML = '⏳ Working...';
+    btn.innerHTML = '⏳ Skanuję...';
     btn.disabled = true;
 
     try {
-        // API call to fetch logs
         const response = await fetch(`/api/hosts/${id}/fetch`, { method: 'POST' });
         const data = await response.json();
 
         if (response.ok) {
-            const newAlerts = data.alerts_generated || 0;
-            const counterBadge = document.getElementById('stats-alerts-count'); 
+            loadAlerts();
+            loadStats();
             
-            if (counterBadge) {
-                const currentVal = parseInt(counterBadge.innerText) || 0;
-                counterBadge.innerText = currentVal + newAlerts;
-            }
-
-            // User notification
-            if (newAlerts > 0) {
-                alert(`⚠️ THREATS DETECTED!\n\nNew alerts found: ${newAlerts}\nLines analyzed: ${data.count}`);
+            if (data.alerts_generated > 0) {
+                alert(`⚠️ WYKRYTO ZAGROŻENIA!\nNowe krytyczne alerty: ${data.alerts_generated}`);
             } else {
-                alert(`✅ Scan completed.\nNo new threats.\nLines analyzed: ${data.count}`);
+                alert(`✅ Skanowanie zakończone. Brak nowych zagrożeń krytycznych.`);
             }
-            
         } else {
-            alert('Log Collection Failed: ' + (data.message || data.error));
+            alert('Błąd: ' + (data.message || data.error));
         }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Connection Error (Check Cloudflare Tunnel)');
-    } finally {
+    } catch (e) { console.error('Error:', e); }
+    finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
+}
+
+// Submit new host form
+async function submitHost() {
+    const name = document.getElementById('host-name').value;
+    const ip = document.getElementById('host-ip').value;
+    const os = document.getElementById('host-os').value;
+    try {
+        const response = await fetch('/api/hosts/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, ip, os })
+        });
+        if (response.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('addHostModal')).hide();
+            loadHosts();
+            document.getElementById('add-host-form').reset();
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function deleteHost(id) {
+    if(!confirm('Usunąć maszynę?')) return;
+    try {
+        const response = await fetch(`/api/hosts/${id}`, { method: 'DELETE' });
+        if (response.ok) loadHosts();
+    } catch (e) { console.error(e); }
 }

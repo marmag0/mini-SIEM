@@ -92,7 +92,8 @@ def fetch_logs_endpoint(host_id):
     
     # Fetching logs (SSH)
     collector = LogCollector()
-    logs = collector.fetch_logs(host, last_fetch_time=None)   
+    logs = collector.fetch_logs(host, last_fetch_time=None) 
+    print(f"DEBUG: Pobranych znaków logu: {len(logs) if logs else 0}")
 
     if not logs:
         return jsonify({'message': 'No new logs found', 'count': 0})
@@ -114,18 +115,27 @@ def fetch_logs_endpoint(host_id):
         alerts_count = 0
         # Generating alerts based on parsed events
         for event in events:
-            if event['type'] == 'ssh_failed':
-                msg_content = f"Brute Force: {event['source_ip']} tried user {event['target_user']}"
+            # Default -> INFO
+            severity_level = event['severity']
+            msg_content = f"Correct login -> user: {event['target_user']} IP: {event['source_ip']}"
 
-                new_alert = Alert(
-                    host_id=host.id,
-                    severity='CRITICAL',
-                    message=msg_content,
-                    timestamp=event['timestamp'],
-                    is_resolved=False
-                )
-                db.session.add(new_alert)
-                alerts_count += 1
+            if severity_level == 'CRITICAL':
+                msg_content = f"ALERT KRYTYCZNY: Próba włamania na ROOT z {event['source_ip']}"
+            elif severity_level == 'WARNING':
+                msg_content = f"Uwaga: Błędne logowanie użytkownika {event['target_user']} z {event['source_ip']}"
+            else:
+                msg_content = f"Logowanie: {event['target_user']} z {event['source_ip']}"
+            # create Alert record
+            new_alert = Alert(
+                host_id=host.id,
+                severity=severity_level,
+                message=msg_content,
+                timestamp=event['timestamp'],
+                is_resolved=(severity_level == 'INFO')
+            )
+            
+            db.session.add(new_alert)
+            alerts_count += 1
         
         # Updating state
         log_source.last_fetch = datetime.utcnow()
@@ -139,3 +149,33 @@ def fetch_logs_endpoint(host_id):
         }), 200
     
     return jsonify({'error': 'Failed to save logs'}), 500
+
+@hosts_bp.route('/<int:host_id>/block-ip', methods=['POST'])
+@login_required
+def block_ip(host_id):
+    data = request.get_json()
+    ip_to_block = data.get('ip')
+    host = db.session.get(Host, host_id)
+    
+    if not ip_to_block or not host:
+        return jsonify({'error': 'Błędne dane'}), 400
+
+    block_cmd = f"sudo iptables -I INPUT -s {ip_to_block} -j DROP"
+    
+    collector = LogCollector()
+
+    try:
+        import subprocess
+        key_path = "/root/.ssh/id_rsa_siem"
+        ssh_cmd = [
+            "ssh", "-i", key_path,
+            "-o", "ProxyCommand=cloudflared access ssh --hostname %h",
+            "-o", "StrictHostKeyChecking=no",
+            f"mikolaj_mazur05@{host.ip_address}",
+            block_cmd
+        ]
+        subprocess.run(ssh_cmd, check=True)
+        
+        return jsonify({'message': f'Adres {ip_to_block} został zablokowany!'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

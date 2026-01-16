@@ -10,7 +10,7 @@ services:
       - ./src:/app/src              # live reload src code
       - ./data:/app/data            # database and archives
       - ./.env:/app/.env            # environment variables
-      - ./keys:/app/keys # ssh keys for log collection
+      - ./keys:/root/.ssh # ssh keys for log collection
     environment:
       - FLASK_APP=src/app.py
       - FLASK_DEBUG=1

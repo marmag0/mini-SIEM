@@ -15,7 +15,7 @@ class LogCollector:
         logs = []
         try:
             # Private key for SSH authentication
-            key_path = '/app/keys/id_rsa_siem' 
+            key_path = "/root/.ssh/id_rsa_siem" 
             my_key = paramiko.RSAKey.from_private_key_file(key_path)
 
             # Configure Cloudflare Tunnel as a proxy
