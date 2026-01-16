@@ -15,10 +15,10 @@ class DataManager:
         if not logs_list:
             return None
 
-        # 1. Convert logs_list to DataFrame
+        # Convert logs_list to DataFrame
         df = pd.DataFrame(logs_list)
 
-        # 2. Generate a unique filename
+        # Generate a unique filename
         # Format: hostID_TIMESTAMP_UUID.parquet
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{host_id}_{timestamp}.parquet"
@@ -27,7 +27,7 @@ class DataManager:
         storage_path = current_app.config.get('STORAGE_PATH', './data/archives')
         full_path = os.path.join(storage_path, filename)
 
-        # 3. Save to Parquet (with compression to save space)
+        # Save to Parquet (with compression to save space)
         # Requires: pandas, pyarrow
         try:
             # Ensure directory exists
