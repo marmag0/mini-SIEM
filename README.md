@@ -63,12 +63,20 @@ Ensure cloudflared is running on the host and the Public Hostname is configured 
 
 4. **SIEM placement**
 
-    1. Place your private key in `data/id_rsa_siem`
-    2. Transport public key generated based on `id_rsa_siem` to `.ssh/allowed_hosts` on client
-    3. Set appropriate permissions: `chmod 600 data/id_rsa_siem`
-    4. Build, run and init db on server:
+    1. set `.env`
+    ```
+    # Token for tunneling WebUI
+    CLOUDFLARE_TUNNEL_TOKEN= 
+    # Deafult panel admin username
+    ADMIN_USER= 
+    # Deafult panel admin password
+    ADMIN_PASSWORD=
+    ```
+    2. Place your private key in `data/id_rsa_siem`
+    3. Transport public key generated based on `id_rsa_siem` to `.ssh/allowed_hosts` on client
+    4. Set appropriate permissions: `chmod 600 data/id_rsa_siem`
+    5. Build, run and init db on server:
     ```
     docker compose up -d --build
     docker compose exec app flask setup
     ```
-    
