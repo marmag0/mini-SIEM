@@ -100,7 +100,21 @@ async function fetchLogs(id, btn) {
         const data = await response.json();
 
         if (response.ok) {
-            alert(`Success! Logs saved: ${data.file} (${data.count} records)`);
+            const newAlerts = data.alerts_generated || 0;
+            const counterBadge = document.getElementById('stats-alerts-count'); 
+            
+            if (counterBadge) {
+                const currentVal = parseInt(counterBadge.innerText) || 0;
+                counterBadge.innerText = currentVal + newAlerts;
+            }
+
+            // User notification
+            if (newAlerts > 0) {
+                alert(`⚠️ THREATS DETECTED!\n\nNew alerts found: ${newAlerts}\nLines analyzed: ${data.count}`);
+            } else {
+                alert(`✅ Scan completed.\nNo new threats.\nLines analyzed: ${data.count}`);
+            }
+            
         } else {
             alert('Log Collection Failed: ' + (data.message || data.error));
         }

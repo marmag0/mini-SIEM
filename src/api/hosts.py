@@ -1,11 +1,15 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
+from core import collector
 from extensions import db
-from models import Host, LogSource, LogArchive
+from models import Host, LogSource, LogArchive, Alert
 from datetime import datetime
 
 from core.collector import LogCollector
 from core.data_manager import DataManager
+from core.parser import LogParser
+
+import os
 
 # API Blueprint for Host Management
 hosts_bp = Blueprint('hosts_api', __name__, url_prefix='/api/hosts')
@@ -88,8 +92,8 @@ def fetch_logs_endpoint(host_id):
     
     # Fetching logs (SSH)
     collector = LogCollector()
-    logs = collector.fetch_logs(host, last_fetch_time=log_source.last_fetch)
-    
+    logs = collector.fetch_logs(host, last_fetch_time=None)   
+
     if not logs:
         return jsonify({'message': 'No new logs found', 'count': 0})
 
@@ -101,10 +105,37 @@ def fetch_logs_endpoint(host_id):
         archive = LogArchive(host_id=host.id, filename=filename, record_count=len(logs))
         db.session.add(archive)
         
-        # 4. Updating state
+        # Parsing logs for security events
+        storage_path = current_app.config.get('STORAGE_PATH', './data/archives')
+        full_path = os.path.join(storage_path, filename)
+        parser = LogParser(full_path)
+        events = parser.parse()
+        
+        alerts_count = 0
+        # Generating alerts based on parsed events
+        for event in events:
+            if event['type'] == 'ssh_failed':
+                msg_content = f"Brute Force: {event['source_ip']} tried user {event['target_user']}"
+
+                new_alert = Alert(
+                    host_id=host.id,
+                    severity='CRITICAL',
+                    message=msg_content,
+                    timestamp=event['timestamp'],
+                    is_resolved=False
+                )
+                db.session.add(new_alert)
+                alerts_count += 1
+        
+        # Updating state
         log_source.last_fetch = datetime.utcnow()
         db.session.commit()
         
-        return jsonify({'message': 'Logs fetched successfully', 'count': len(logs), 'file': filename})
+        return jsonify({
+            'message': 'Success', 
+            'count': len(logs), 
+            'file': filename,
+            'alerts_generated': alerts_count  # Info about generated alerts
+        }), 200
     
     return jsonify({'error': 'Failed to save logs'}), 500

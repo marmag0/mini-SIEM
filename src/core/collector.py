@@ -14,14 +14,14 @@ class LogCollector:
         """
         logs = []
         try:
-            # 1. Konfiguracja klucza prywatnego
-            key_path = '/root/.ssh/id_rsa' 
+            # Private key for SSH authentication
+            key_path = '/app/keys/id_rsa_siem' 
             my_key = paramiko.RSAKey.from_private_key_file(key_path)
 
             # Configure Cloudflare Tunnel as a proxy
             sock = paramiko.ProxyCommand(f"cloudflared access ssh --hostname {host.ip_address}")
 
-            # 3. Connecting to the host
+            # Connecting to the host
             print(f"[SSH] Connecting to {host.ip_address} ({host.name})...")
             self.ssh.connect(
                 hostname=host.ip_address,
@@ -30,7 +30,7 @@ class LogCollector:
                 sock=sock
             )
 
-            # 4. Building the command (Incremental Logic)
+            # Building the command (Incremental Logic)
             # Use journalctl with JSON output
             cmd = "journalctl -u ssh --output=json --no-pager"
             
@@ -40,15 +40,23 @@ class LogCollector:
                 cmd += f' --since "{since_str}"'
             else:
                 # Default to last 100 lines on first run
-                cmd += " -n 100"
+                cmd += " -n 1000"
 
             print(f"[SSH] Executing: {cmd}")
             stdin, stdout, stderr = self.ssh.exec_command(cmd)
 
-            # 5. Parsing results
+            # Parsing results
             for line in stdout:
                 try:
                     entry = json.loads(line)
+
+                    # Extracting timestamp
+                    ts_raw = entry.get('__REALTIME_TIMESTAMP')
+                    if ts_raw:
+                        ts = int(ts_raw) / 1000000.0
+                    else:
+                        ts = time.time()
+
                     # Data normalization
                     logs.append({
                         'timestamp': entry.get('__REALTIME_TIMESTAMP', time.time()), # Timestamp from Linux

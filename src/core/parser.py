@@ -1,49 +1,61 @@
 import pandas as pd
 import re
 from datetime import datetime
+import sys
 
 class LogParser:
-    # Patterns for detecting security events
+    # Regex patterns for detecting events
     PATTERNS = {
-        'ssh_failed': r"Failed password for (invalid user )?(?P<user>\w+) from (?P<ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",
-        'ssh_success': r"Accepted password for (?P<user>\w+) from (?P<ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+        'ssh_failed': r"Failed\s+password\s+for\s+(?:invalid\s+user\s+)?(?P<user>\S+)\s+from\s+(?P<ip>[\d\.]+)"
     }
 
     def __init__(self, filepath):
         self.filepath = filepath
 
+    def clean_text(self, text):
+        """Remove ANSI codes and extra spaces from text."""
+        if not isinstance(text, str):
+            text = str(text)
+        # Remove ANSI escape sequences
+        text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
+        # Replace tabs and multiple spaces with single spaces
+        return " ".join(text.split())
+
     def parse(self):
-        """
-        Opens a Parquet file and returns a list of detected security events.
-        """
         detected_events = []
-        
         try:
-            # Load Parquet file
             df = pd.read_parquet(self.filepath)
-            
-            # Iterate through log entries
-            for index, row in df.iterrows():
-                message = row.get('message', '')
-                timestamp = row.get('timestamp') # Linux timestamp
+            if df.empty:
+                return []
+
+            for _, row in df.iterrows():
+                # Clean the log message
+                message = self.clean_text(row.get('message', ''))
                 
-                # Check each pattern
+                # Extract and convert timestamp
+                raw_ts = row.get('timestamp', 0)
+                try:
+                    ts_val = float(raw_ts)
+                    if ts_val > 9999999999: ts_val /= 1000000.0
+                    event_time = datetime.fromtimestamp(ts_val)
+                except:
+                    event_time = datetime.utcnow()
+
                 for event_type, pattern in self.PATTERNS.items():
-                    match = re.search(pattern, message)
+                    # Match the pattern
+                    match = re.search(pattern, message, re.IGNORECASE)
                     if match:
-                        # Extract relevant data
                         data = match.groupdict()
+                        print(f"✅ [PARSER]: {data['user']} IP: {data['ip']}", file=sys.stdout)
                         
-                        event = {
-                            'timestamp': datetime.fromtimestamp(float(timestamp)),
-                            'type': event_type, # np. 'ssh_failed'
-                            'source_ip': data.get('ip'),
-                            'target_user': data.get('user'),
+                        detected_events.append({
+                            'timestamp': event_time,
+                            'type': event_type,
+                            'source_ip': data['ip'],
+                            'target_user': data['user'],
                             'raw_text': message
-                        }
-                        detected_events.append(event)
-                        
+                        })
         except Exception as e:
-            print(f"[Parser Error] {e}")
+            print(f"[PARSER ERROR] {e}", file=sys.stdout)
             
         return detected_events
