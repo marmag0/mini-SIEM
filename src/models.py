@@ -85,6 +85,8 @@ class Alert(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     host_id = db.Column(db.Integer, db.ForeignKey('hosts.id'))
     severity = db.Column(db.String(20)) # INFO, WARNING, CRITICAL
+    source_ip = db.Column(db.String(64))  # <---
+    target_user = db.Column(db.String(64))  # <---
     message = db.Column(db.String(256))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     is_resolved = db.Column(db.Boolean, default=False)

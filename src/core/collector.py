@@ -14,25 +14,21 @@ class LogCollector:
         """
         logs = []
         try:
-            # Private key for SSH authentication
             key_path = "/root/.ssh/id_rsa_siem" 
             my_key = paramiko.RSAKey.from_private_key_file(key_path)
-
-            # Configure Cloudflare Tunnel as a proxy
             sock = paramiko.ProxyCommand(f"cloudflared access ssh --hostname {host.ip_address}")
 
-            # Connecting to the host
-            print(f"[SSH] Connecting to {host.ip_address} ({host.name})...")
             self.ssh.connect(
                 hostname=host.ip_address,
                 username='mikolaj_mazur05',
                 pkey=my_key,
-                sock=sock
+                sock=sock,
+                timeout=10
             )
 
             # Building the command (Incremental Logic)
             # Use journalctl with JSON output
-            cmd = "journalctl -u ssh --output=json --no-pager"
+            cmd = f"sudo journalctl -u ssh.service --output json --no-pager"
             
             if last_fetch_time:
                 # Format date for journalctl: "YYYY-MM-DD HH:MM:SS"
@@ -49,22 +45,18 @@ class LogCollector:
             for line in stdout:
                 try:
                     entry = json.loads(line)
-
-                    # Extracting timestamp
+                    # Normalizacja mikrosekund na sekundy (float)
                     ts_raw = entry.get('__REALTIME_TIMESTAMP')
-                    if ts_raw:
-                        ts = int(ts_raw) / 1000000.0
-                    else:
-                        ts = time.time()
+                    timestamp = int(ts_raw) / 1000000.0 if ts_raw else time.time()
 
                     # Data normalization
                     logs.append({
-                        'timestamp': entry.get('__REALTIME_TIMESTAMP', time.time()), # Timestamp from Linux
+                        'timestamp': timestamp,
                         'message': entry.get('MESSAGE', ''),
                         'hostname': entry.get('_HOSTNAME', host.name),
                         'raw': line.strip()
                     })
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, ValueError):
                     continue
             
             self.ssh.close()

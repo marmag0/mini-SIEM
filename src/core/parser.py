@@ -1,6 +1,6 @@
 import pandas as pd
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 import sys
 
 class LogParser:
@@ -35,6 +35,12 @@ class LogParser:
                 message = self.clean_text(row.get(msg_col, ""))
                 if not message: continue
 
+                raw_ts = row.get('timestamp')
+                if raw_ts and not pd.isna(raw_ts):
+                    dt_object = datetime.fromtimestamp(float(raw_ts), tz=timezone.utc)
+                else:
+                    dt_object = datetime.now(timezone.utc)
+
                 for event_type, pattern in self.PATTERNS.items():
                     match = re.search(pattern, message, re.IGNORECASE)
                     if match:
@@ -47,7 +53,7 @@ class LogParser:
                             severity = "CRITICAL" if data['user'] == 'root' else "WARNING"
 
                         detected_events.append({
-                            'timestamp': datetime.utcnow(),
+                            'timestamp': dt_object,
                             'type': event_type,
                             'severity': severity,
                             'source_ip': data['ip'],

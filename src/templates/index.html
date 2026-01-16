@@ -77,6 +77,33 @@
     </div>
 </div>
 
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-dark text-white border-warning">
+            <div class="card-header border-warning d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">🕵️ Wykryte Zagrożenia (IP > 10 prób)</h5>
+                <button class="btn btn-sm btn-outline-warning" onclick="loadIpThreats()">🔄 Odśwież listę</button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="threats-table" class="table table-dark table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Adres IP</th>
+                                <th>Liczba Ataków</th>
+                                <th>Max Poziom</th>
+                                <th>Akcja</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-md-12">
         <div class="card bg-dark text-white border-warning">

@@ -115,6 +115,17 @@ def fetch_logs_endpoint(host_id):
         alerts_count = 0
         # Generating alerts based on parsed events
         for event in events:
+
+            existing_alert = Alert.query.filter_by(
+                host_id=host.id,
+                timestamp=event['timestamp'],
+                source_ip=event['source_ip'],
+                target_user=event['target_user']
+            ).first()
+
+            if existing_alert:
+                continue  # Skip duplicate alert
+
             # Default -> INFO
             severity_level = event['severity']
             msg_content = f"Correct login -> user: {event['target_user']} IP: {event['source_ip']}"
@@ -129,6 +140,8 @@ def fetch_logs_endpoint(host_id):
             new_alert = Alert(
                 host_id=host.id,
                 severity=severity_level,
+                source_ip=event['source_ip'],
+                target_user=event['target_user'],
                 message=msg_content,
                 timestamp=event['timestamp'],
                 is_resolved=(severity_level == 'INFO')

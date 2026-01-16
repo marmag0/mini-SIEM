@@ -152,3 +152,65 @@ async function deleteHost(id) {
         if (response.ok) loadHosts();
     } catch (e) { console.error(e); }
 }
+
+async function loadIpThreats() {
+    try {
+        const response = await fetch('/api/alerts/ip-stats');
+        const threats = await response.json();
+        const tbody = document.querySelector('#threats-table tbody');
+        tbody.innerHTML = '';
+
+        if (threats.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Brak powtarzających się ataków.</td></tr>';
+            return;
+        }
+
+        threats.forEach(t => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="fw-bold text-warning">${t.ip}</td>
+                <td><span class="badge bg-secondary">${t.count}</span></td>
+                <td><span class="badge ${t.severity === 'CRITICAL' ? 'bg-danger' : 'bg-warning text-dark'}">${t.severity}</span></td>
+                <td>
+                    <button class="btn btn-danger btn-sm" onclick="blockIp(1, '${t.ip}', this)">
+                        🚫 Zablokuj IP
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (e) { console.error('Błąd ładowania zagrożeń:', e); }
+}
+
+// Block IP on firewall
+async function blockIp(hostId, ip, btn) {
+    if (!confirm(`Czy na pewno zablokować IP ${ip} na firewallu?`)) return;
+    
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Blokuję...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`/api/hosts/${hostId}/block-ip`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ip: ip })
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            alert('Sukces: ' + data.message);
+            loadIpThreats(); // Refresh the threats list
+        } else {
+            alert('Błąd: ' + data.error);
+        }
+    } catch (e) { console.error(e); }
+    finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadIpThreats();
+});
