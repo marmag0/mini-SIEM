@@ -2,6 +2,8 @@
 
 A lightweight, custom Security Information and Event Management (SIEM) system designed for monitoring Linux SSH logs across remote environments using secure Cloudflare Tunnels.
 
+![dashboard showcase](media/dashboard.png)
+
 ## Architecture - (High-Level)
 
 1. **SIEM Server**
